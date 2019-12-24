@@ -924,7 +924,7 @@ do
     vim.api.nvim_set_current_win(winnr)
     vim.api.nvim_buf_set_keymap(
       bufnr, 'n', '<CR>',
-      string.format('<cmd>lua vim.lsp.util.choice_option_callback("%s")<CR>', unique_name),
+      string.format('<cmd>lua vim.lsp.util.choice_option_callback(%q)<CR>', unique_name),
       {noremap = true}
     )
     return bufnr, winnr
