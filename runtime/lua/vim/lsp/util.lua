@@ -610,9 +610,17 @@ do
     return severity_highlights[severity]
   end
 
-  function M.show_line_diagnostics()
+  function M.get_line_diagnostics()
     local bufnr = api.nvim_get_current_buf()
     local line = api.nvim_win_get_cursor(0)[1] - 1
+
+    local buffer_diagnostics = all_buffer_diagnostics[bufnr]
+    if not buffer_diagnostics then return end
+    local line_diagnostics = buffer_diagnostics[line]
+    return line_diagnostics or {}
+  end
+
+  function M.show_line_diagnostics()
     -- local marks = api.nvim_buf_get_extmarks(bufnr, diagnostic_ns, {line, 0}, {line, -1}, {})
     -- if #marks == 0 then
     --   return
@@ -620,10 +628,7 @@ do
     -- local buffer_diagnostics = all_buffer_diagnostics[bufnr]
     local lines = {"Diagnostics:"}
     local highlights = {{0, "Bold"}}
-
-    local buffer_diagnostics = all_buffer_diagnostics[bufnr]
-    if not buffer_diagnostics then return end
-    local line_diagnostics = buffer_diagnostics[line]
+    local line_diagnostics = M.get_line_diagnostics()
     if not line_diagnostics then return end
 
     for i, diagnostic in ipairs(line_diagnostics) do
@@ -845,14 +850,26 @@ function M.try_trim_markdown_code_blocks(lines)
 end
 
 local str_utfindex = vim.str_utfindex
-function M.make_position_params()
+local function make_position_param()
   local row, col = unpack(api.nvim_win_get_cursor(0))
   row = row - 1
   local line = api.nvim_buf_get_lines(0, row, row+1, true)[1]
   col = str_utfindex(line, col)
+  return { line = row; character = col; }
+end
+
+function M.make_position_params()
   return {
-    textDocument = { uri = vim.uri_from_bufnr(0) };
-    position = { line = row; character = col; }
+    textDocument = { uri = vim.uri_from_bufnr(0) },
+    position = make_position_param()
+  }
+end
+
+function M.make_range_params()
+  local position = make_position_param()
+  return {
+    textDocument = { uri = vim.uri_from_bufnr(0) },
+    range = { start = position; ["end"] = position; }
   }
 end
 
@@ -867,6 +884,53 @@ function M.character_offset(buf, row, col)
   end
   return str_utfindex(line, col)
 end
+
+do
+  local all_choice_options = {}
+
+  local function save_choice_callback(unique_name, options, callback)
+    validate {
+      unique_name = { unique_name, 's' },
+      options = { options, 't' },
+      callback = { callback, 'f' }
+    }
+
+    all_choice_options[unique_name] = { callback = callback, options = options }
+  end
+
+  function M.choice_option_callback(unique_name)
+    local line = api.nvim_win_get_cursor(0)[1]
+    local option = all_choice_options[unique_name].options[line]
+    local callback = all_choice_options[unique_name].callback
+    api.nvim_win_close(0, false)
+    callback(option)
+  end
+
+  function M.choice_preview(unique_name, options, title_fn, callback)
+    validate {
+      unique_name = { unique_name, 's' },
+      options = { options, 't' },
+      title_fn = { title_fn, 'f' }
+    }
+    save_choice_callback(unique_name, options, callback)
+    local bufnr, winnr = M.focusable_preview(unique_name, function()
+      local titles = {}
+      for _, option in ipairs(options) do
+        table.insert(titles, title_fn(option))
+      end
+      return titles
+    end
+    )
+    vim.api.nvim_set_current_win(winnr)
+    vim.api.nvim_buf_set_keymap(
+      bufnr, 'n', '<CR>',
+      string.format('<cmd>lua vim.lsp.util.choice_option_callback("%s")<CR>', unique_name),
+      {noremap = true}
+    )
+    return bufnr, winnr
+  end
+end
+
 
 return M
 -- vim:sw=2 ts=2 et
