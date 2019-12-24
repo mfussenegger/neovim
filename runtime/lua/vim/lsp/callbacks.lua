@@ -47,7 +47,11 @@ M['workspace/applyEdit'] = function(_, _, workspace_edit)
   if workspace_edit.label then
     print("Workspace edit", workspace_edit.label)
   end
-  util.apply_workspace_edit(workspace_edit.edit)
+  local status, err = pcall(util.apply_workspace_edit, workspace_edit.edit)
+  return {
+    applied = status;
+    failureReason = err;
+  }
 end
 
 M['textDocument/publishDiagnostics'] = function(_, _, result)
