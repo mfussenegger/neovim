@@ -135,7 +135,7 @@ function M.apply_text_document_edit(text_document_edit)
   local text_document = text_document_edit.textDocument
   local bufnr = vim.uri_to_bufnr(text_document.uri)
   -- TODO(ashkan) check this is correct.
-  if api.nvim_buf_get_changedtick(bufnr) > text_document.version then
+  if M.buf_version_get(bufnr) > text_document.version then
     print("Buffer ", text_document.uri, " newer than edits.")
     return
   end
@@ -732,6 +732,18 @@ do
       table.insert(virt_texts, {"■ "..last.message:gsub("\r", ""):gsub("\n", "  "), severity_highlights[last.severity]})
       api.nvim_buf_set_virtual_text(bufnr, diagnostic_ns, line, virt_texts, {})
     end
+  end
+end
+
+do
+  local all_buffer_versions = {}
+
+  function M.buf_version_set(bufnr, version)
+    all_buffer_versions[bufnr] = version
+  end
+
+  function M.buf_version_get(bufnr)
+    return all_buffer_versions[bufnr] or 0
   end
 end
 
