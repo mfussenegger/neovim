@@ -38,11 +38,17 @@ M['textDocument/codeAction'] = function(_, _, actions)
   local action_chosen = actions[choice]
   -- textDocument/codeAction can return either Command[] or CodeAction[].
   -- We handle both in the same way by extracting the command
-  local command = action_chosen
+  local action = action_chosen
   if type(action_chosen.command) == table then
-    command = action_chosen.command
+    action = action_chosen.command
   end
-  buf.execute_command(command)
+  if action.command == 'java.apply.workspaceEdit' then
+    for _, argument in ipairs(action.arguments) do
+      util.apply_workspace_edit(argument)
+    end
+  else
+    buf.execute_command(action)
+  end
 end
 
 M['workspace/applyEdit'] = function(_, _, workspace_edit)
