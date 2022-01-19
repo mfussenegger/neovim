@@ -1356,6 +1356,7 @@ local pattern = {
   ["zlog.*"] = starsetf('zsh'),
   ["zsh.*"] = starsetf('zsh'),
   ["ae%d+%.txt"] = 'mail',
+  [".*/tmp/neomutt-.*"] = starsetf('mail'),
   ["[a-zA-Z0-9].*Dict"] = function() vim.fn["dist#ft#FTfoam"]() end,
   ["[a-zA-Z0-9].*Dict%..*"] = function() vim.fn["dist#ft#FTfoam"]() end,
   ["[a-zA-Z].*Properties"] = function() vim.fn["dist#ft#FTfoam"]() end,
