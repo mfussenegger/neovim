@@ -718,6 +718,32 @@ function lsp.start(config, opts)
   for _, client in pairs(lsp.get_active_clients()) do
     if reuse_client(client, config) then
       lsp.buf_attach_client(bufnr, client.id)
+
+      if client.config.root_dir ~= config.root_dir then
+        local new_workspace = {
+          uri = vim.uri_from_fname(config.root_dir),
+          name = config.root_dir,
+        }
+        if not vim.tbl_contains(client.workspaceFolders, new_workspace) then
+          table.insert(client.workspaceFolders, new_workspace)
+        end
+        client.notify('workspace/didChangeWorkspaceFolders', {
+          event = { added = { new_workspace }, removed = {} },
+        })
+      end
+      if config.workspace_folders and config.workspace_folders ~= client.workspaceFolders then
+        local new_workspaces = {}
+        for _, workspace in pairs(config.workspace_folders) do
+          if not vim.tbl_contains(client.workspaceFolders, workspace) then
+            table.insert(new_workspaces, workspace)
+            table.insert(client.workspaceFolders, workspace)
+          end
+        end
+        client.notify('workspace/didChangeWorkspaceFolders', {
+          event = { added = { new_workspaces }, removed = {} },
+        })
+      end
+
       return client.id
     end
   end
