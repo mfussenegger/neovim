@@ -519,6 +519,14 @@ local function on_complete_done()
     -- Remove the already inserted word.
     local start_char = cursor_col - #completed_item.word
     local line = api.nvim_buf_get_lines(bufnr, cursor_row, cursor_row + 1, true)[1]
+    if completion_item.textEdit then
+      local range_start = lsp.util._str_byteindex_enc(
+        line,
+        completion_item.textEdit.range.start.character,
+        offset_encoding
+      )
+      start_char = math.min(range_start, start_char)
+    end
     api.nvim_buf_set_text(bufnr, cursor_row, start_char, cursor_row, #line, { '' })
     return line:sub(cursor_col + 1)
   end

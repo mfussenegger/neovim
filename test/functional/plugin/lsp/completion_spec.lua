@@ -364,6 +364,7 @@ describe('vim.lsp.completion: protocol', function()
     exec_lua(create_server_definition)
     exec_lua([[
       _G.capture = {}
+      _G.orig_complete = vim.fn.complete
       vim.fn.complete = function(col, matches)
         _G.capture.col = col
         _G.capture.matches = matches
@@ -391,6 +392,7 @@ describe('vim.lsp.completion: protocol', function()
           end
         }
       })
+      _G.server = server
 
       bufnr = vim.api.nvim_get_current_buf()
       vim.api.nvim_win_set_buf(0, bufnr)
@@ -483,6 +485,7 @@ describe('vim.lsp.completion: protocol', function()
 
     feed('ih')
     trigger_at_pos({ 1, 1 })
+    feed('<c-c>')
 
     assert_matches(function(matches)
       eq(2, #matches)
@@ -545,6 +548,64 @@ describe('vim.lsp.completion: protocol', function()
       eq(1, #matches)
       eq('hello', matches[1].word)
       eq(true, exec_lua('return _G.called'))
+    end)
+  end)
+
+  it('replaces textEdit.range text with newText on snippet', function()
+    local completion_list = {
+      isIncomplete = false,
+      items = {
+        {
+          label = ' get() const',
+          insertText = '.get()',
+          textEdit = {
+            newText = '.get()',
+            range = {
+              start = {
+                character = 3,
+                line = 0,
+              },
+              ['end'] = {
+                character = 5,
+                line = 0,
+              },
+            },
+          },
+        },
+      },
+    }
+    create_server(completion_list)
+
+    exec_lua([[
+      vim.o.completeopt = "menuone,noinsert,noselect"
+      vim.fn.complete = _G.orig_complete
+    ]])
+    feed('i  a-><c-x><c-o>')
+
+    local messages = exec_lua([[
+      return vim.tbl_map(function(x) return x.method end, _G.server.messages)
+    ]])
+    local expected = {
+      'initialize',
+      'initialized',
+      'textDocument/completion',
+    }
+    eq(expected, messages)
+    retry(nil, nil, function()
+      eq(1, exec_lua([[ return vim.fn.pumvisible() ]]))
+    end)
+
+    feed('<c-n><c-y>')
+    local item = exec_lua([[
+      return vim.v.completed_item
+    ]])
+    eq('.get()', item.word)
+
+    retry(nil, nil, function()
+      local lines = exec_lua([[
+        return vim.api.nvim_buf_get_lines(0, 0, -1, true)
+      ]])
+      eq({ '  a.get()' }, lines)
     end)
   end)
 end)
